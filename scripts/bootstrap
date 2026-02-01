@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SYNTAX_DIR="$HOME/.config/nano/syntax"
+REPO_URL="https://github.com/scopatz/nanorc.git"
+
+mkdir -p "$(dirname "$SYNTAX_DIR")"
+
+if [ -d "$SYNTAX_DIR/.git" ]; then
+  echo "Updating nanorc syntax repo in $SYNTAX_DIR"
+  git -C "$SYNTAX_DIR" pull --ff-only
+else
+  if [ -e "$SYNTAX_DIR" ]; then
+    echo "Refusing to overwrite existing $SYNTAX_DIR (not a git repo)."
+    echo "Move it aside or delete it, then re-run."
+    exit 1
+  fi
+  echo "Cloning nanorc syntax repo into $SYNTAX_DIR"
+  git clone "$REPO_URL" "$SYNTAX_DIR"
+fi

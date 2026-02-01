@@ -1,0 +1,18 @@
+## UI basics
+set linenumbers
+set mouse
+set softwrap
+
+## Editing behavior
+set tabsize 2
+set tabstospaces
+set autoindent
+set indicator
+set minibar
+
+## Search
+set regexp
+
+# scopatz syntaxes
+include "~/.config/nano/syntax/*.nanorc"
+

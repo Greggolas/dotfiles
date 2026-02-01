@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SRC="$REPO_DIR/home"
+BACKUP="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
+
+mkdir -p "$BACKUP"
+
+link_file() {
+  local src="$1"
+  local rel="${src#$SRC/}"
+  local dst="$HOME/$rel"
+
+  mkdir -p "$(dirname "$dst")"
+
+  # If already the right symlink, do nothing.
+  if [ -L "$dst" ] && [ "$(readlink "$dst")" = "$src" ]; then
+    return 0
+  fi
+
+  # Backup existing dst (file or symlink)
+  if [ -e "$dst" ] || [ -L "$dst" ]; then
+    mkdir -p "$BACKUP/$(dirname "$rel")"
+    mv "$dst" "$BACKUP/$rel"
+  fi
+
+  ln -s "$src" "$dst"
+  echo "linked $dst"
+}
+
+# Link all files under home/
+while IFS= read -r -d '' f; do
+  link_file "$f"
+done < <(find "$SRC" -type f -print0)
