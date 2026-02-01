@@ -9,12 +9,17 @@ if [ ! -f "$SRC" ]; then
   exit 1
 fi
 
-# Determine ZSH_CUSTOM from zsh, fallback to default OMZ location.
-ZSH_CUSTOM="$(
-  command -v zsh >/dev/null 2>&1 \
-    && zsh -lc 'print -r -- ${ZSH_CUSTOM:-}' 2>/dev/null \
-    || true
-)"
+# Resolution order:
+# 1) DOTFILES_ZSH_CUSTOM explicitly provided by caller
+# 2) ZSH_CUSTOM from a zsh process WITHOUT rc files
+# 3) default OMZ custom dir
+ZSH_CUSTOM="${DOTFILES_ZSH_CUSTOM:-}"
+
+if [ -z "${ZSH_CUSTOM:-}" ] && command -v zsh >/dev/null 2>&1; then
+  # -f: don't load any startup files. This avoids relying on a working ~/.zshrc.
+  ZSH_CUSTOM="$(zsh -fc 'print -r -- ${ZSH_CUSTOM:-}' 2>/dev/null || true)"
+fi
+
 if [ -z "${ZSH_CUSTOM:-}" ]; then
   ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
 fi
@@ -29,10 +34,11 @@ DST="$ZSH_CUSTOM/dotfiles.zsh"
 # If already correct, do nothing.
 if [ -L "$DST" ] && [ "$(readlink "$DST")" = "$SRC" ]; then
   echo "already linked: $DST"
+  echo "ZSH_CUSTOM=$ZSH_CUSTOM"
   exit 0
 fi
 
-# Backup existing destination
+# Backup existing destination (file or symlink)
 if [ -e "$DST" ] || [ -L "$DST" ]; then
   mv "$DST" "$BACKUP/$(basename "$DST")"
 fi
@@ -40,3 +46,4 @@ fi
 ln -s "$SRC" "$DST"
 echo "linked $DST -> $SRC"
 echo "ZSH_CUSTOM=$ZSH_CUSTOM"
+echo "Backups (if any): $BACKUP"

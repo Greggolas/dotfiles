@@ -1,20 +1,68 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SYNTAX_DIR="$HOME/.config/nano/syntax"
-REPO_URL="https://github.com/scopatz/nanorc.git"
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-mkdir -p "$(dirname "$SYNTAX_DIR")"
+need_cmd() {
+  command -v "$1" >/dev/null 2>&1
+}
 
-if [ -d "$SYNTAX_DIR/.git" ]; then
-  echo "Updating nanorc syntax repo in $SYNTAX_DIR"
-  git -C "$SYNTAX_DIR" pull --ff-only
+apt_install_if_missing() {
+  local pkg="$1"
+  if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+    sudo apt-get update
+    sudo apt-get install -y "$pkg"
+  fi
+}
+
+echo "[bootstrap] prerequisites"
+apt_install_if_missing git
+apt_install_if_missing curl
+apt_install_if_missing zsh
+
+echo "[bootstrap] oh-my-zsh"
+OMZ_DIR="$HOME/.oh-my-zsh"
+if [ -d "$OMZ_DIR/.git" ]; then
+  git -C "$OMZ_DIR" pull --ff-only
 else
-  if [ -e "$SYNTAX_DIR" ]; then
-    echo "Refusing to overwrite existing $SYNTAX_DIR (not a git repo)."
-    echo "Move it aside or delete it, then re-run."
+  if [ -e "$OMZ_DIR" ]; then
+    echo "Refusing to overwrite $OMZ_DIR (exists but is not a git repo)." >&2
     exit 1
   fi
-  echo "Cloning nanorc syntax repo into $SYNTAX_DIR"
-  git clone "$REPO_URL" "$SYNTAX_DIR"
+  git clone https://github.com/ohmyzsh/ohmyzsh.git "$OMZ_DIR"
 fi
+
+echo "[bootstrap] mise"
+# mise docs list apt as the recommended method for Debian/Ubuntu.
+# If you prefer the curl installer instead, we can swap this out.
+if ! need_cmd mise; then
+  # package name is "mise" on Ubuntu when available
+  # If apt can't find it, this will fail and you'll see the error.
+  sudo apt-get update
+  sudo apt-get install -y mise
+fi
+
+echo "[bootstrap] nano syntaxes (scopatz/nanorc)"
+"$REPO_DIR/scripts/bootstrap-nano-syntax" 2>/dev/null || true
+
+echo "[bootstrap] zshrc (only if missing)"
+if [ ! -e "$HOME/.zshrc" ]; then
+  cp "$OMZ_DIR/templates/zshrc.zsh-template" "$HOME/.zshrc"
+  echo "Created ~/.zshrc from OMZ template."
+fi
+
+# Optional: set zsh as default login shell.
+# Toggle by setting DOTFILES_SET_SHELL=0 in the environment.
+if [ "${DOTFILES_SET_SHELL:-1}" = "1" ]; then
+  if [ "${SHELL:-}" != "$(command -v zsh)" ]; then
+    echo "[bootstrap] setting login shell to zsh (may prompt for password)"
+    chsh -s "$(command -v zsh)"
+  fi
+fi
+
+echo "[bootstrap] install zsh custom anchor"
+if [ -x "$REPO_DIR/scripts/install-zsh-custom" ]; then
+  "$REPO_DIR/scripts/install-zsh-custom"
+fi
+
+echo "[bootstrap] done"
