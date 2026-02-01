@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SRC="$REPO_DIR/zsh/custom/dotfiles.zsh"
+
+if [ ! -f "$SRC" ]; then
+  echo "Missing anchor file: $SRC" >&2
+  exit 1
+fi
+
+# Determine ZSH_CUSTOM from zsh, fallback to default OMZ location.
+ZSH_CUSTOM="$(
+  command -v zsh >/dev/null 2>&1 \
+    && zsh -lc 'print -r -- ${ZSH_CUSTOM:-}' 2>/dev/null \
+    || true
+)"
+if [ -z "${ZSH_CUSTOM:-}" ]; then
+  ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
+fi
+
+mkdir -p "$ZSH_CUSTOM"
+
+BACKUP="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)/zsh-custom"
+mkdir -p "$BACKUP"
+
+DST="$ZSH_CUSTOM/dotfiles.zsh"
+
+# If already correct, do nothing.
+if [ -L "$DST" ] && [ "$(readlink "$DST")" = "$SRC" ]; then
+  echo "already linked: $DST"
+  exit 0
+fi
+
+# Backup existing destination
+if [ -e "$DST" ] || [ -L "$DST" ]; then
+  mv "$DST" "$BACKUP/$(basename "$DST")"
+fi
+
+ln -s "$SRC" "$DST"
+echo "linked $DST -> $SRC"
+echo "ZSH_CUSTOM=$ZSH_CUSTOM"
